@@ -5,11 +5,17 @@
 from setuptools import setup
 import re
 import os
-import ConfigParser
+import io
+try:
+    from configparser import ConfigParser
+except ImportError:
+    from ConfigParser import ConfigParser
 
 
 def read(fname):
-    return open(os.path.join(os.path.dirname(__file__), fname)).read()
+    return io.open(
+        os.path.join(os.path.dirname(__file__), fname),
+        'r', encoding='utf-8').read()
 
 
 def get_require_version(name):
@@ -21,7 +27,7 @@ def get_require_version(name):
         major_version, minor_version + 1)
     return require
 
-config = ConfigParser.ConfigParser()
+config = ConfigParser()
 config.readfp(open('tryton.cfg'))
 info = dict(config.items('tryton'))
 for key in ('depends', 'extras_depend', 'xml'):
@@ -43,7 +49,7 @@ if minor_version % 2:
 
 requires = []
 for dep in info.get('depends', []):
-    if not re.match(r'(ir|res|webdav)(\W|$)', dep):
+    if not re.match(r'(ir|res)(\W|$)', dep):
         requires.append(get_require_version('trytond_%s' % dep))
 requires.append(get_require_version('trytond'))
 
@@ -71,7 +77,7 @@ setup(name=name,
     package_data={
         'trytond.modules.account_payment_clearing': (info.get('xml', [])
             + ['tryton.cfg', 'view/*.xml', 'locale/*.po', '*.odt',
-                'icons/*.svg']),
+                'icons/*.svg', 'tests/*.rst']),
         },
     classifiers=[
         'Development Status :: 5 - Production/Stable',
@@ -83,6 +89,7 @@ setup(name=name,
         'License :: OSI Approved :: GNU General Public License (GPL)',
         'Natural Language :: Bulgarian',
         'Natural Language :: Catalan',
+        'Natural Language :: Chinese (Simplified)',
         'Natural Language :: Czech',
         'Natural Language :: Dutch',
         'Natural Language :: English',
@@ -96,6 +103,9 @@ setup(name=name,
         'Natural Language :: Spanish',
         'Operating System :: OS Independent',
         'Programming Language :: Python :: 2.7',
+        'Programming Language :: Python :: 3.3',
+        'Programming Language :: Python :: 3.4',
+        'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: Implementation :: CPython',
         'Programming Language :: Python :: Implementation :: PyPy',
         'Topic :: Office/Business',
@@ -112,4 +122,9 @@ setup(name=name,
     test_suite='tests',
     test_loader='trytond.test_loader:Loader',
     tests_require=tests_require,
+    use_2to3=True,
+    convert_2to3_doctests=[
+        'tests/scenario_account_negative_payment_clearing.rst',
+        'tests/scenario_account_payment_clearing.rst',
+        ],
     )
