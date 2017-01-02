@@ -6,7 +6,9 @@ Imports::
     >>> import datetime
     >>> from dateutil.relativedelta import relativedelta
     >>> from decimal import Decimal
-    >>> from proteus import config, Model, Wizard
+    >>> from proteus import Model, Wizard
+    >>> from trytond.tests.tools import activate_modules
+    >>> from trytond.modules.currency.tests.tools import get_currency
     >>> from trytond.modules.company.tests.tools import create_company, \
     ...     get_company
     >>> from trytond.modules.account.tests.tools import create_fiscalyear, \
@@ -15,21 +17,9 @@ Imports::
     ...     set_fiscalyear_invoice_sequences
     >>> today = datetime.date.today()
 
-Create database::
+Install account_payment_clearing and account_statement::
 
-    >>> config = config.set_trytond()
-    >>> config.pool.test = True
-
-Install account_payment_clearing::
-
-    >>> Module = Model.get('ir.module')
-    >>> account_payment_module, = Module.find(
-    ...     [('name', '=', 'account_payment_clearing')])
-    >>> account_payment_module.click('install')
-    >>> account_statement_module, = Module.find(
-    ...     [('name', '=', 'account_statement')])
-    >>> account_statement_module.click('install')
-    >>> Wizard('ir.module.install_upgrade').execute('upgrade')
+    >>> config = activate_modules(['account_payment_clearing', 'account_statement'])
 
 Create company::
 
@@ -51,8 +41,12 @@ Create chart of accounts::
     >>> cash = accounts['cash']
 
     >>> Account = Model.get('account.account')
-    >>> bank_clearing = Account(name='Bank Clearing', type=payable.type,
-    ...     reconcile=True, deferral=True, parent=payable.parent, kind='other')
+    >>> bank_clearing = Account(parent=payable.parent)
+    >>> bank_clearing.name = 'Bank Clearing'
+    >>> bank_clearing.type = payable.type
+    >>> bank_clearing.reconcile = True
+    >>> bank_clearing.deferral = True
+    >>> bank_clearing.kind = 'other'
     >>> bank_clearing.save()
 
     >>> Journal = Model.get('account.journal')
@@ -91,7 +85,7 @@ Partially pay the line::
     >>> line, = [l for l in move.lines if l.account == payable]
     >>> pay_line = Wizard('account.move.line.pay', [line])
     >>> pay_line.form.journal = payment_journal
-    >>> pay_line.execute('pay')
+    >>> pay_line.execute('start')
     >>> payment, = Payment.find()
     >>> payment.amount = Decimal('30.0')
     >>> payment.click('approve')
@@ -137,7 +131,7 @@ Pay the line::
     >>> line, = [l for l in move.lines if l.account == payable]
     >>> pay_line = Wizard('account.move.line.pay', [line])
     >>> pay_line.form.journal = payment_journal
-    >>> pay_line.execute('pay')
+    >>> pay_line.execute('start')
     >>> payment, = Payment.find([('state', '=', 'draft')])
     >>> payment.amount
     Decimal('50.00')
@@ -272,3 +266,137 @@ Validate statement::
     >>> bank_clearing.reload()
     >>> bank_clearing.balance
     Decimal('0.00')
+
+Create a statement that reimburse the payment group::
+
+    >>> statement = Statement(name='test',
+    ...     journal=statement_journal,
+    ...     start_balance=Decimal('-50.00'),
+    ...     end_balance=Decimal('0.00'),
+    ...     )
+    >>> line = statement.lines.new(date=today)
+    >>> line.payment_group = payment.group
+    >>> line.account == bank_clearing
+    True
+    >>> line.amount = Decimal('50.00')
+
+    >>> statement.click('validate_statement')
+    >>> statement.state
+    u'validated'
+
+Payment must be failed::
+
+    >>> payment.reload()
+    >>> payment.state
+    u'failed'
+
+
+Payment in a foreign currency
+-----------------------------
+
+Create a payment journal in Euro::
+
+    >>> euro = get_currency('EUR')
+    >>> euro_payment_journal = PaymentJournal(
+    ...     name='Euro Payments', process_method='manual', currency=euro,
+    ...     clearing_journal=expense, clearing_account=bank_clearing)
+    >>> euro_payment_journal.save()
+
+Create a payable move::
+
+    >>> move = Move()
+    >>> move.journal = expense
+    >>> line = move.lines.new(
+    ...     account=payable, party=supplier, credit=Decimal('20.00'),
+    ...     amount_second_currency=Decimal('-40.00'), second_currency=euro)
+    >>> line = move.lines.new(
+    ...     account=expense, debit=Decimal('20.00'),
+    ...     amount_second_currency=Decimal('40.00'), second_currency=euro)
+    >>> move.click('post')
+
+Pay the line::
+
+    >>> line, = [l for l in move.lines if l.account == payable]
+    >>> pay_line = Wizard('account.move.line.pay', [line])
+    >>> pay_line.form.journal = euro_payment_journal
+    >>> pay_line.execute('start')
+    >>> payment, = Payment.find([('state', '=', 'draft')])
+    >>> payment.amount
+    Decimal('40.00')
+    >>> payment.click('approve')
+    >>> process_payment = Wizard('account.payment.process', [payment])
+    >>> process_payment.execute('process')
+    >>> payment.reload()
+    >>> payment.state
+    u'processing'
+
+Succeed payment::
+
+    >>> payment.click('succeed')
+    >>> debit_line, = [l for l in payment.clearing_move.lines if l.debit > 0]
+    >>> debit_line.debit
+    Decimal('20.00')
+    >>> debit_line.amount_second_currency
+    Decimal('40.00')
+
+Validate Statement with processing payment
+--------------------------------------------
+
+Create a payable move::
+
+    >>> move = Move()
+    >>> move.journal = expense
+    >>> line = move.lines.new(account=payable, party=supplier,
+    ...     credit=Decimal('50.00'))
+    >>> line = move.lines.new(account=expense, debit=Decimal('50.00'))
+    >>> move.click('post')
+
+Create a processing payment for the move::
+
+    >>> Payment = Model.get('account.payment')
+    >>> line, = [l for l in move.lines if l.account == payable]
+    >>> pay_line = Wizard('account.move.line.pay', [line])
+    >>> pay_line.form.journal = payment_journal
+    >>> pay_line.execute('start')
+    >>> payment, = Payment.find([('line', '=', line.id)])
+    >>> payment.click('approve')
+    >>> payment.state
+    u'approved'
+    >>> process_payment = Wizard('account.payment.process', [payment])
+    >>> process_payment.execute('process')
+    >>> payment.reload()
+    >>> payment.state
+    u'processing'
+
+Create statement for the payment::
+
+    >>> statement = Statement(name='test',
+    ...     journal=statement_journal,
+    ...     start_balance=Decimal('0.00'),
+    ...     end_balance=Decimal('-50.00'))
+    >>> line = statement.lines.new(date=today)
+    >>> line.payment = payment
+    >>> line.party == supplier
+    True
+    >>> line.account == bank_clearing
+    True
+    >>> line.amount
+    Decimal('-50.00')
+    >>> statement.save()
+
+Validate statement and check the payment is confirmed::
+
+    >>> statement.click('validate_statement')
+    >>> statement.state
+    u'validated'
+    >>> line, = statement.lines
+    >>> move_line, = [l for l in line.move.lines
+    ...     if l.account == bank_clearing]
+    >>> bool(move_line.reconciliation)
+    True
+    >>> payment.reload()
+    >>> payment.state
+    u'succeeded'
+    >>> debit_line, = [l for l in payment.clearing_move.lines if l.debit > 0]
+    >>> debit_line.debit
+    Decimal('50.00')

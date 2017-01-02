@@ -6,7 +6,8 @@ Imports::
     >>> import datetime
     >>> from dateutil.relativedelta import relativedelta
     >>> from decimal import Decimal
-    >>> from proteus import config, Model, Wizard
+    >>> from proteus import Model, Wizard
+    >>> from trytond.tests.tools import activate_modules
     >>> from trytond.modules.company.tests.tools import create_company, \
     ...     get_company
     >>> from trytond.modules.account.tests.tools import create_fiscalyear, \
@@ -15,21 +16,9 @@ Imports::
     ...     set_fiscalyear_invoice_sequences
     >>> today = datetime.date.today()
 
-Create database::
+Install account_payment_clearing and account_statement::
 
-    >>> config = config.set_trytond()
-    >>> config.pool.test = True
-
-Install account_payment_clearing::
-
-    >>> Module = Model.get('ir.module')
-    >>> account_payment_module, = Module.find(
-    ...     [('name', '=', 'account_payment_clearing')])
-    >>> account_payment_module.click('install')
-    >>> account_statement_module, = Module.find(
-    ...     [('name', '=', 'account_statement')])
-    >>> account_statement_module.click('install')
-    >>> Wizard('ir.module.install_upgrade').execute('upgrade')
+    >>> config = activate_modules(['account_payment_clearing', 'account_statement'])
 
 Create company::
 
@@ -51,8 +40,12 @@ Create chart of accounts::
     >>> cash = accounts['cash']
 
     >>> Account = Model.get('account.account')
-    >>> bank_clearing = Account(name='Bank Clearing', type=payable.type,
-    ...     reconcile=True, deferral=True, parent=payable.parent, kind='other')
+    >>> bank_clearing = Account(parent=payable.parent)
+    >>> bank_clearing.name = 'Bank Clearing'
+    >>> bank_clearing.type = payable.type
+    >>> bank_clearing.reconcile = True
+    >>> bank_clearing.deferral = True
+    >>> bank_clearing.kind = 'other'
     >>> bank_clearing.save()
 
     >>> Journal = Model.get('account.journal')
@@ -91,7 +84,7 @@ Pay the line::
     >>> line, = [l for l in move.lines if l.account == payable]
     >>> pay_line = Wizard('account.move.line.pay', [line])
     >>> pay_line.form.journal = payment_journal
-    >>> pay_line.execute('pay')
+    >>> pay_line.execute('start')
     >>> payment, = Payment.find([('state', '=', 'draft')])
     >>> payment.amount
     Decimal('50.00')
