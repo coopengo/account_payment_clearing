@@ -115,6 +115,8 @@ class Payment:
         if not local_currency:
             counterpart.amount_second_currency = -self.amount
             counterpart.second_currency = self.journal.currency
+        counterpart.party = (self.line.party if
+            self.journal.clearing_account.party_required else None)
         move.lines = (line, counterpart)
         return move
 
