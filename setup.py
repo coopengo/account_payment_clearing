@@ -54,7 +54,8 @@ for dep in info.get('depends', []):
 requires.append(get_require_version('trytond'))
 
 tests_require = [get_require_version('proteus'),
-    get_require_version('trytond_account_statement')]
+    get_require_version('trytond_account_statement'),
+    'python-dateutil']
 dependency_links = []
 if minor_version % 2:
     # Add development index for testing with proteus
@@ -86,7 +87,7 @@ setup(name=name,
         'Intended Audience :: Developers',
         'Intended Audience :: Financial and Insurance Industry',
         'Intended Audience :: Legal Industry',
-        'License :: OSI Approved :: GNU General Public License (GPL)',
+        'License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)',
         'Natural Language :: Bulgarian',
         'Natural Language :: Catalan',
         'Natural Language :: Chinese (Simplified)',

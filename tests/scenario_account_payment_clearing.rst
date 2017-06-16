@@ -16,6 +16,7 @@ Imports::
     >>> from trytond.modules.account_invoice.tests.tools import \
     ...     set_fiscalyear_invoice_sequences
     >>> today = datetime.date.today()
+    >>> first = today  + relativedelta(day=1)
 
 Install account_payment_clearing and account_statement::
 
@@ -37,6 +38,7 @@ Create chart of accounts::
     >>> _ = create_chart(company)
     >>> accounts = get_accounts(company)
     >>> receivable = accounts['receivable']
+    >>> revenue = accounts['revenue']
     >>> payable = accounts['payable']
     >>> cash = accounts['cash']
 
@@ -51,6 +53,7 @@ Create chart of accounts::
 
     >>> Journal = Model.get('account.journal')
     >>> expense, = Journal.find([('code', '=', 'EXP')])
+    >>> revenue_journal, = Journal.find([('code', '=', 'REV')])
 
 Create payment journal::
 
@@ -65,6 +68,8 @@ Create parties::
     >>> Party = Model.get('party.party')
     >>> supplier = Party(name='Supplier')
     >>> supplier.save()
+    >>> customer = Party(name='Customer')
+    >>> customer.save()
 
 Create payable move::
 
@@ -99,9 +104,15 @@ Partially pay the line::
 
 Succeed payment::
 
-    >>> payment.click('succeed')
+    >>> succeed = Wizard('account.payment.succeed', [payment])
+    >>> succeed.form.date == today
+    True
+    >>> succeed.form.date = first
+    >>> succeed.execute('succeed')
     >>> payment.state
     u'succeeded'
+    >>> payment.clearing_move.date == first
+    True
     >>> payment.clearing_move.state
     u'draft'
     >>> payable.reload()
@@ -146,7 +157,8 @@ Pay the line::
 
 Succeed payment::
 
-    >>> payment.click('succeed')
+    >>> succeed = Wizard('account.payment.succeed', [payment])
+    >>> succeed.execute('succeed')
     >>> payment.state
     u'succeeded'
     >>> payment.clearing_move.state
@@ -170,7 +182,8 @@ Fail payment::
 
 Succeed payment and post clearing::
 
-    >>> payment.click('succeed')
+    >>> succeed = Wizard('account.payment.succeed', [payment])
+    >>> succeed.execute('succeed')
     >>> payment.state
     u'succeeded'
     >>> clearing_move = payment.clearing_move
@@ -193,7 +206,8 @@ Fail payment with posted clearing::
 
 Succeed payment to use on statement::
 
-    >>> payment.click('succeed')
+    >>> succeed = Wizard('account.payment.succeed', [payment])
+    >>> succeed.execute('succeed')
     >>> payment.state
     u'succeeded'
 
@@ -332,12 +346,53 @@ Pay the line::
 
 Succeed payment::
 
-    >>> payment.click('succeed')
+    >>> succeed = Wizard('account.payment.succeed', [payment])
+    >>> succeed.execute('succeed')
     >>> debit_line, = [l for l in payment.clearing_move.lines if l.debit > 0]
     >>> debit_line.debit
     Decimal('20.00')
     >>> debit_line.amount_second_currency
     Decimal('40.00')
+
+Create receivable move::
+
+    >>> move = Move()
+    >>> move.journal = revenue_journal
+    >>> line = move.lines.new(account=receivable, party=customer,
+    ...     debit=Decimal('50.00'), second_currency=euro,
+    ...     amount_second_currency=Decimal('100.0'))
+    >>> line = move.lines.new(account=revenue, credit=Decimal('50.00'))
+    >>> move.click('post')
+    >>> receivable.reload()
+    >>> receivable.balance
+    Decimal('50.00')
+
+Pay the line::
+
+    >>> Payment = Model.get('account.payment')
+    >>> line, = [l for l in move.lines if l.account == receivable]
+    >>> pay_line = Wizard('account.move.line.pay', [line])
+    >>> pay_line.form.journal = euro_payment_journal
+    >>> pay_line.execute('start')
+    >>> payment, = Payment.find([('state', '=', 'draft')])
+    >>> payment.amount
+    Decimal('100.0')
+    >>> payment.click('approve')
+    >>> process_payment = Wizard('account.payment.process', [payment])
+    >>> process_payment.execute('process')
+    >>> payment.reload()
+    >>> payment.state
+    u'processing'
+
+Succeed payment::
+
+    >>> succeed = Wizard('account.payment.succeed', [payment])
+    >>> succeed.execute('succeed')
+    >>> credit_line, = [l for l in payment.clearing_move.lines if l.credit > 0]
+    >>> credit_line.credit
+    Decimal('50.00')
+    >>> credit_line.amount_second_currency
+    Decimal('-100.0')
 
 Validate Statement with processing payment
 --------------------------------------------
