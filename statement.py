@@ -18,7 +18,7 @@ class Statement:
         MoveLine = pool.get('account.move.line')
 
         moves = super(Statement, cls).create_move(statements)
-
+        to_reconcile_list = []
         for move, statement, lines in moves:
             assert len({l.payment for l in lines}) == 1
             line = lines[0]
@@ -31,7 +31,9 @@ class Statement:
                                 and not line.reconciliation):
                             to_reconcile.append(line)
                     if not sum((l.debit - l.credit) for l in to_reconcile):
-                        MoveLine.reconcile(to_reconcile)
+                        to_reconcile_list.append(to_reconcile)
+        if to_reconcile_list:
+            MoveLine.bulk_reconcile(to_reconcile_list)
         return moves
 
     def _group_key(self, line):
