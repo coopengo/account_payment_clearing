@@ -61,8 +61,8 @@ class Payment:
                     if l.account == payment.line.account] + [payment.line]
                 if not sum(l.debit - l.credit for l in lines):
                     to_reconcile.append(lines)
-        for lines in to_reconcile:
-            Line.reconcile(lines)
+        if to_reconcile:
+            Line.bulk_reconcile(to_reconcile)
 
     def create_clearing_move(self, date=None):
         pool = Pool()
@@ -152,8 +152,9 @@ class Payment:
             Reconciliation.delete(to_unreconcile)
         if to_delete:
             Move.delete(to_delete)
-        for party in to_reconcile:
-            for lines in to_reconcile[party].itervalues():
-                Line.reconcile(lines)
+        to_reconcile_list = [lines for party in to_reconcile for lines in
+            to_reconcile[party].itervalues()]
+        if to_reconcile_list:
+            Line.bulk_reconcile(to_reconcile_list)
 
         cls.write(payments, {'clearing_move': None})
