@@ -104,7 +104,8 @@ class StatementLine(metaclass=PoolMeta):
         default.setdefault('payment_group', None)
         return super(StatementLine, cls).copy(lines, default=default)
 
-    @fields.depends('payment', 'party', 'account', '_parent_statement.journal')
+    @fields.depends('payment', 'party', 'account',
+        'statement', '_parent_statement.journal')
     def on_change_payment(self):
         pool = Pool()
         Currency = pool.get('currency.currency')
@@ -159,3 +160,36 @@ class StatementLine(metaclass=PoolMeta):
                 if l.payment
                 and l.payment.clearing_move
                 and l.payment.clearing_move.state == 'draft'])
+
+
+class StatementRuleLine(metaclass=PoolMeta):
+    __name__ = 'account.statement.rule.line'
+
+    def get_line(self, origin, keywords, **context):
+        line = super().get_line(origin, keywords, **context)
+        if line:
+            line.payment = self._get_payment(origin, keywords)
+            if (line.payment and line.party
+                    and line.payment.party != line.party):
+                return
+            line.payment_group = self._get_payment_group(origin, keywords)
+        return line
+
+    def _get_payment(self, origin, keywords):
+        pool = Pool()
+        Payment = pool.get('account.payment')
+        if keywords.get('payment'):
+            payments = Payment.search([('rec_name', '=', keywords['payment'])])
+            if len(payments) == 1:
+                payment, = payments
+                return payment
+
+    def _get_payment_group(self, origin, keywords):
+        pool = Pool()
+        Payment = pool.get('account.payment.group')
+        if keywords.get('payment_group'):
+            groups, = Payment.search(
+                [('rec_name', '=', keywords['payment_group'])])
+            if len(groups) == 1:
+                group, = groups
+                return group

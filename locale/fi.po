@@ -8,15 +8,15 @@ msgstr ""
 
 msgctxt "field:account.payment,clearing_move:"
 msgid "Clearing Move"
-msgstr "Movimento di compensazione"
+msgstr ""
 
 msgctxt "field:account.payment.journal,clearing_account:"
 msgid "Clearing Account"
-msgstr "Conto di compensazione"
+msgstr ""
 
 msgctxt "field:account.payment.journal,clearing_journal:"
 msgid "Clearing Journal"
-msgstr "Registro di compensazione"
+msgstr ""
 
 msgctxt "field:account.payment.journal,clearing_posting_delay:"
 msgid "Clearing Posting Delay"
@@ -32,11 +32,11 @@ msgstr ""
 
 msgctxt "field:account.statement.line,payment:"
 msgid "Payment"
-msgstr "Pagamento"
+msgstr ""
 
 msgctxt "field:account.statement.line,payment_group:"
 msgid "Payment Group"
-msgstr "Raggruppamento pagamenti"
+msgstr ""
 
 msgctxt "help:account.payment,account:"
 msgid "Define the account to use for clearing move."
@@ -57,17 +57,18 @@ msgctxt "model:ir.action,name:wizard_succeed"
 msgid "Succeed Payments"
 msgstr "Succeed Payments"
 
-msgctxt "model:ir.cron,name:cron_post_clearing_moves"
-msgid "Post Clearing Moves"
-msgstr "Post Clearing Moves"
-
 msgctxt "model:ir.model.button,string:payment_succeed_wizard_button"
 msgid "Succeed"
 msgstr "Succeed"
 
+#, fuzzy
+msgctxt "selection:ir.cron,method:"
+msgid "Post Clearing Moves"
+msgstr "Post Clearing Moves"
+
 msgctxt "view:account.payment.journal:"
 msgid "Clearing"
-msgstr "Compensazione"
+msgstr ""
 
 msgctxt "wizard_button:account.payment.succeed,start,end:"
 msgid "Cancel"

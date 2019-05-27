@@ -91,8 +91,9 @@ Partially pay the line::
     >>> Payment = Model.get('account.payment')
     >>> line, = [l for l in move.lines if l.account == payable]
     >>> pay_line = Wizard('account.move.line.pay', [line])
+    >>> pay_line.execute('next_')
     >>> pay_line.form.journal = payment_journal
-    >>> pay_line.execute('start')
+    >>> pay_line.execute('next_')
     >>> payment, = Payment.find()
     >>> payment.amount = Decimal('30.0')
     >>> payment.click('approve')
@@ -143,8 +144,9 @@ Pay the line::
 
     >>> line, = [l for l in move.lines if l.account == payable]
     >>> pay_line = Wizard('account.move.line.pay', [line])
+    >>> pay_line.execute('next_')
     >>> pay_line.form.journal = payment_journal
-    >>> pay_line.execute('start')
+    >>> pay_line.execute('next_')
     >>> payment, = Payment.find([('state', '=', 'draft')])
     >>> payment.amount
     Decimal('50.00')
@@ -193,8 +195,8 @@ Succeed payment and post clearing::
     >>> Cron = Model.get('ir.cron')
     >>> Company = Model.get('company.company')
     >>> cron_post_clearing_moves, = Cron.find([
-    ...     ('model', '=', 'account.payment.journal'),
-    ...     ('function', '=', 'cron_post_clearing_moves'),
+    ...     ('method', '=',
+    ...         'account.payment.journal|cron_post_clearing_moves'),
     ...     ])
     >>> cron_post_clearing_moves.companies.append(Company(company.id))
     >>> cron_post_clearing_moves.click('run_once')
@@ -344,8 +346,9 @@ Pay the line::
 
     >>> line, = [l for l in move.lines if l.account == payable]
     >>> pay_line = Wizard('account.move.line.pay', [line])
+    >>> pay_line.execute('next_')
     >>> pay_line.form.journal = euro_payment_journal
-    >>> pay_line.execute('start')
+    >>> pay_line.execute('next_')
     >>> payment, = Payment.find([('state', '=', 'draft')])
     >>> payment.amount
     Decimal('40.00')
@@ -384,8 +387,9 @@ Pay the line::
     >>> Payment = Model.get('account.payment')
     >>> line, = [l for l in move.lines if l.account == receivable]
     >>> pay_line = Wizard('account.move.line.pay', [line])
+    >>> pay_line.execute('next_')
     >>> pay_line.form.journal = euro_payment_journal
-    >>> pay_line.execute('start')
+    >>> pay_line.execute('next_')
     >>> payment, = Payment.find([('state', '=', 'draft')])
     >>> payment.amount
     Decimal('100.0')
@@ -423,8 +427,9 @@ Create a processing payment for the move::
     >>> Payment = Model.get('account.payment')
     >>> line, = [l for l in move.lines if l.account == payable]
     >>> pay_line = Wizard('account.move.line.pay', [line])
+    >>> pay_line.execute('next_')
     >>> pay_line.form.journal = payment_journal
-    >>> pay_line.execute('start')
+    >>> pay_line.execute('next_')
     >>> payment, = Payment.find([('line', '=', line.id)])
     >>> payment.click('approve')
     >>> payment.state
