@@ -58,11 +58,7 @@ class Payment(metaclass=PoolMeta):
         'account.account', "Account", ondelete='RESTRICT',
         domain=[
             ('company', '=', Eval('company', -1)),
-            ['OR',
-                ('type.receivable', '=', True),
-                ('type.payable', '=', True),
-                ('type.deposit', '=', True),
-                ],
+            ('type.statement', '=', 'balance'),
             ['OR',
                 ('second_currency', '=', Eval('currency', None)),
                 [
@@ -242,6 +238,15 @@ class Payment(metaclass=PoolMeta):
         for party in to_reconcile:
             for lines in to_reconcile[party].values():
                 Line.reconcile(lines)
+
+    @classmethod
+    def copy(cls, payments, default=None):
+        if default is None:
+            default = {}
+        else:
+            default = default.copy()
+        default.setdefault('clearing_move')
+        return super(Payment, cls).copy(payments, default=default)
 
 
 class Succeed(Wizard):
