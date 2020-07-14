@@ -1,11 +1,11 @@
 # This file is part of Tryton.  The COPYRIGHT file at the top level of
 # this repository contains the full copyright notices and license terms.
+from collections import defaultdict
+
 from trytond.pool import PoolMeta, Pool
 from trytond.model import fields
 from trytond.pyson import Eval, If, Bool
 from trytond.transaction import Transaction
-
-__all__ = ['Statement', 'StatementLine']
 
 
 class Statement(metaclass=PoolMeta):
@@ -19,28 +19,32 @@ class Statement(metaclass=PoolMeta):
 
         moves = super(Statement, cls).create_move(statements)
 
-        to_success = []
-        to_fail = []
+        to_success = defaultdict(set)
+        to_fail = defaultdict(set)
         for move, statement, lines in moves:
             for line in lines:
                 if line.payment:
-                    payments = [line.payment]
+                    payments = {line.payment}
                     kind = line.payment.kind
                 elif line.payment_group:
-                    payments = line.payment_group.payments
+                    payments = set(line.payment_group.payments)
                     kind = line.payment_group.kind
                 else:
                     continue
                 if (kind == 'receivable') == (line.amount >= 0):
-                    to_success.extend(payments)
+                    to_success[line.date].update(payments)
                 else:
-                    to_fail.extend(payments)
+                    to_fail[line.date].update(payments)
         # The failing should be done last because success is usually not a
         # definitive state
         if to_success:
-            Payment.succeed(to_success)
+            for date, payments in to_success.items():
+                with Transaction().set_context(clearing_date=date):
+                    Payment.succeed(Payment.browse(payments))
         if to_fail:
-            Payment.fail(to_fail)
+            for date, payments in to_fail.items():
+                with Transaction().set_context(clearing_date=date):
+                    Payment.fail(Payment.browse(payments))
 
         for move, statement, lines in moves:
             assert len({l.payment for l in lines}) == 1
@@ -59,7 +63,9 @@ class Statement(metaclass=PoolMeta):
 
     def _group_key(self, line):
         key = super(Statement, self)._group_key(line)
-        return key + (('payment', line.payment),)
+        if hasattr(line, 'payment'):
+            key += (('payment', line.payment),)
+        return key
 
 
 class StatementLine(metaclass=PoolMeta):
@@ -113,7 +119,7 @@ class StatementLine(metaclass=PoolMeta):
             if not self.party:
                 self.party = self.payment.party
             clearing_account = self.payment.journal.clearing_account
-            if not self.account and clearing_account:
+            if clearing_account and self.account != clearing_account:
                 self.account = clearing_account
             if self.statement and self.statement.journal:
                 with Transaction().set_context(date=self.payment.date):
@@ -128,7 +134,7 @@ class StatementLine(metaclass=PoolMeta):
         if self.payment_group:
             self.party = None
             clearing_account = self.payment_group.journal.clearing_account
-            if not self.account and clearing_account:
+            if clearing_account and self.account != clearing_account:
                 self.account = clearing_account
 
     @fields.depends('party', 'payment')
