@@ -8,13 +8,15 @@ from trytond.pyson import Eval, Bool
 from trytond.transaction import Transaction
 from trytond.wizard import Wizard, StateView, StateTransition, Button
 
-__all__ = ['Journal', 'Payment', 'Succeed', 'SucceedStart']
-
 
 class Journal(metaclass=PoolMeta):
     __name__ = 'account.payment.journal'
     clearing_account = fields.Many2One('account.account', 'Clearing Account',
-        domain=[('party_required', '=', False)],
+        domain=[
+            ('type', '!=', None),
+            ('closed', '!=', True),
+            ('party_required', '=', False),
+            ],
         states={
             'required': Bool(Eval('clearing_journal')),
             },
@@ -57,8 +59,9 @@ class Payment(metaclass=PoolMeta):
     account = fields.Many2One(
         'account.account', "Account", ondelete='RESTRICT',
         domain=[
+            ('closed', '!=', True),
             ('company', '=', Eval('company', -1)),
-            ('type.statement', '=', 'balance'),
+            ('type.statement', 'in', ['balance', 'off-balance']),
             ['OR',
                 ('second_currency', '=', Eval('currency', None)),
                 [

@@ -49,7 +49,6 @@ Create chart of accounts::
     >>> bank_clearing.type = payable.type
     >>> bank_clearing.reconcile = True
     >>> bank_clearing.deferral = True
-    >>> bank_clearing.kind = 'other'
     >>> bank_clearing.save()
 
     >>> Journal = Model.get('account.journal')
@@ -446,7 +445,7 @@ Create statement for the payment::
     ...     journal=statement_journal,
     ...     start_balance=Decimal('0.00'),
     ...     end_balance=Decimal('-50.00'))
-    >>> line = statement.lines.new(date=today)
+    >>> line = statement.lines.new(date=yesterday)
     >>> line.payment = payment
     >>> line.party == supplier
     True
@@ -472,3 +471,5 @@ Validate statement and check the payment is confirmed::
     >>> debit_line, = [l for l in payment.clearing_move.lines if l.debit > 0]
     >>> debit_line.debit
     Decimal('50.00')
+    >>> debit_line.date == yesterday
+    True
