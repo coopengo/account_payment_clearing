@@ -79,6 +79,18 @@ class Payment(metaclass=PoolMeta):
     clearing_move = fields.Many2One('account.move', 'Clearing Move',
         readonly=True)
 
+    @property
+    def amount_line_paid(self):
+        amount = super().amount_line_paid
+
+        if self.clearing_move:
+            clearing_line = [l for l in self.clearing_move.lines
+                if l.account == self.clearing_account][0]
+            if (not self.line.reconciliation
+                    and clearing_line.reconciliation):
+                amount -= min(self.amount, self.line.amount)
+        return amount
+
     @classmethod
     def __setup__(cls):
         super(Payment, cls).__setup__()

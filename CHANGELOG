@@ -1,3 +1,5 @@
+* Decrease amount_line_paid when the clearing line doesn't pay the payment line
+
 Version 5.6.0 - 2020-05-04
 * Bug fixes (see mercurial logs for details)
 * Use the date of the statement line as date for the clearing move
