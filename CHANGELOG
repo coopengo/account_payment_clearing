@@ -1,3 +1,5 @@
+* Decrease amount_line_paid when the clearing line doesn't pay the payment line
+
 Version 6.4.1 - 2022-06-03
 * Bug fixes (see mercurial logs for details)
 
