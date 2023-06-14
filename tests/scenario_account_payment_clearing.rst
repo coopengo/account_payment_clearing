@@ -283,6 +283,9 @@ Validate statement::
     >>> statement.click('dummy_validate_method')
     >>> statement.state
     'validated'
+    >>> line ,= statement.lines
+    >>> line.move == None
+    True
     >>> bank_clearing.reload()
     >>> bank_clearing.balance
     Decimal('-50.00')
@@ -337,6 +340,9 @@ Create a statement that reimburse the payment group::
     >>> statement.click('dummy_validate_method')
     >>> statement.state
     'validated'
+    >>> line ,= statement.lines
+    >>> line.move == None
+    True
     >>> statement.click('post')
 
 Payment must be failed::
@@ -492,8 +498,11 @@ Validate statement and check the payment is confirmed::
     >>> statement.click('dummy_validate_method')
     >>> statement.state
     'validated'
+    >>> line ,= statement.lines
+    >>> line.move == None
+    True
     >>> statement.click('post')
-    >>> line, = statement.lines
+    >>> line ,= statement.lines
     >>> move_line, = [l for l in line.move.lines
     ...     if l.account == bank_clearing]
     >>> bool(move_line.reconciliation)
